@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 variable "base_name" {
   type = string
 }
@@ -5,26 +8,26 @@ variable "base_name" {
 variable "resource_group" {
   description = "The RG VMs"
   type = object({
-    id     = string
+    id       = string
     location = string
-    name   = string
+    name     = string
   })
 }
 
 variable "vm_publisher" {
-  type        = string
+  type = string
 }
 
 variable "vm_offer" {
-  type        = string
+  type = string
 }
 
 variable "vm_sku" {
-  type        = string
+  type = string
 }
 
 variable "vm_version" {
-  type        = string
+  type = string
 }
 
 variable "subnet_id" {
@@ -47,35 +50,39 @@ variable "vm_name" {
 }
 
 variable "sku" {
-    type = string
+  type = string
 }
 
 variable "instances" {
-    type = string
+  type = string
 }
 
 variable "upgrade_mode" {
-    type = string
+  type = string
 }
 
 variable "lb_backend_address_pool_id" {
-    type = string
+  type = string
 }
 
 variable "lb_nat_pool_id" {
-    type = string
+  type = string
 }
 
 variable "health_probe_id" {
-    type = string
+  type = string
 }
 
 variable "network_security_group_id" {
-    type = string
+  type = string
 }
 
 output "id" {
-    value = azurerm_windows_virtual_machine_scale_set.vmss.id
+  value = azurerm_windows_virtual_machine_scale_set.vmss.id
+}
+
+output "name" {
+  value = azurerm_windows_virtual_machine_scale_set.vmss.name
 }
 
 resource "azurerm_windows_virtual_machine_scale_set" "vmss" {
@@ -83,14 +90,18 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss" {
   location            = var.resource_group.location
   resource_group_name = var.resource_group.name
 
-  admin_username      = var.admin_username
-  admin_password      = var.admin_password
+  admin_username = var.admin_username
+  admin_password = var.admin_password
 
-  sku                 = var.sku
-  instances           = var.instances
+  sku       = var.sku
+  instances = var.instances
 
-  health_probe_id     = var.health_probe_id
-  upgrade_mode        = var.upgrade_mode 
+  health_probe_id = var.health_probe_id
+  upgrade_mode    = var.upgrade_mode
+
+  identity {
+    type = "SystemAssigned"
+  }
 
   source_image_reference {
     publisher = var.vm_publisher
@@ -105,24 +116,32 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss" {
   }
 
   network_interface {
-    name    = "vmss-nic"
-    primary = true
+    name                      = format("vmss-nic-%s", lower(var.resource_group.location))
+    primary                   = true
     network_security_group_id = var.network_security_group_id
 
     ip_configuration {
-      name      = "external"
-      primary   = true
-      subnet_id = var.subnet_id
+      name                                   = "external"
+      primary                                = true
+      subnet_id                              = var.subnet_id
       load_balancer_backend_address_pool_ids = [var.lb_backend_address_pool_id]
-      load_balancer_inbound_nat_rules_ids    = [var.lb_nat_pool_id]      
+      load_balancer_inbound_nat_rules_ids    = [var.lb_nat_pool_id]
+
+      public_ip_address {
+        name              = "vmss_public_ip"
+        domain_name_label = lower(format("%s-%s", "vmss", var.base_name))
+      }
     }
   }
-/*
-  rolling_upgrade_policy {
-    max_batch_instance_percent              = 21
-    max_unhealthy_instance_percent          = 22
-    max_unhealthy_upgraded_instance_percent = 23
-    pause_time_between_batches              = "PT30S"
-  }  
-*/
+  custom_data = filebase64("../scripts/setupBackendVMSS.ps1")
+}
+
+//do a role assignment for the new system identity
+data "azurerm_subscription" "primary" {
+}
+
+resource "azurerm_role_assignment" "role_assignment" {
+  scope                = data.azurerm_subscription.primary.id
+  role_definition_name = "Contributor"
+  principal_id         = azurerm_windows_virtual_machine_scale_set.vmss.identity[0].principal_id
 }

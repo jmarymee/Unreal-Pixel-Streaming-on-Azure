@@ -6,7 +6,11 @@
 	"LogToFile": true,
 	"HomepageFile": "player.htm",
 	"AdditionalRoutes": {},
-	"matchmakerAddress": "localhost",
+	"matchmakerAddress": "",
 	"matchmakerPort": "9999",
-	"publicIp": "localhost"
+	"publicIp": "localhost",
+	"subscriptionId": "",
+	"resourceGroup": "",
+	"virtualMachineScaleSet": "",
+	"appInsightsId": ""
 }

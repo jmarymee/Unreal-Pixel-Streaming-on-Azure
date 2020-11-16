@@ -24,6 +24,7 @@ const defaultConfig = {
 	AdditionalRoutes: new Map()
 };
 
+
 const argv = require('yargs').argv;
 var configFile = (typeof argv.configFile != 'undefined') ? argv.configFile.toString() : '.\\config.json';
 console.log(`configFile ${configFile}`);
@@ -31,6 +32,45 @@ const config = require('./modules/config.js').init(configFile, defaultConfig);
 
 if (config.LogToFile) {
 	logging.RegisterFileLogger('./logs');
+}
+
+const appInsights = require('applicationinsights');
+
+if (typeof config.appInsightsId != 'undefined' && config.appInsightsId != "") {
+	appInsights.setup(config.appInsightsId).setSendLiveMetrics(true).start();
+}
+
+if (!appInsights || !appInsights.defaultClient) {
+	console.log("No valid appInsights object to use");
+}
+
+
+function appInsightsLogError(err) {
+
+	if (!appInsights || !appInsights.defaultClient) {
+		return;
+	}
+
+	appInsights.defaultClient.trackMetric({ name: "SignalingServerErrors", value: 1 });
+	appInsights.defaultClient.trackException({ exception: err });
+}
+
+function appInsightsLogEvent(eventName, eventCustomValue) {
+
+	if (!appInsights || !appInsights.defaultClient) {
+		return;
+	}
+
+	appInsights.defaultClient.trackEvent({ name: eventName, properties: { customProperty: eventProperty } });
+}
+
+function appInsightsLogMetric(metricName, metricValue) {
+
+	if (!appInsights || !appInsights.defaultClient) {
+		return;
+	}
+
+	appInsights.defaultClient.trackMetric({ name: metricName, value: metricValue });
 }
 
 console.log("Config: " + JSON.stringify(config, null, '\t'));
@@ -137,6 +177,8 @@ try {
 	}
 } catch (e) {
 	console.error(e);
+	appInsightsLogMetric("SignalingServerError", 1);
+	appInsightsLogError(err);
 	process.exit(2);
 }
 
@@ -272,7 +314,8 @@ let streamer; // WebSocket connected to Streamer
 
 streamerServer.on('connection', function (ws, req) {
 	console.logColor(logging.Green, `Streamer connected: ${req.connection.remoteAddress}`);
-
+	appInsightsLogMetric("SSStreamerConnected", 1);
+	
 	ws.on('message', function onStreamerMessage(msg) {
 		console.logColor(logging.Blue, `<- Streamer: ${msg}`);
 	
@@ -306,6 +349,7 @@ streamerServer.on('connection', function (ws, req) {
 
 	function onStreamerDisconnected() {
 		disconnectAllPlayers();
+		appInsightsLogMetric("SSStreamerDisconnected", 1);
 	}
 	
 	ws.on('close', function(code, reason) {
@@ -340,6 +384,7 @@ playerServer.on('connection', function (ws, req) {
 	let playerId = ++nextPlayerId;
 	console.log(`player ${playerId} (${req.connection.remoteAddress}) connected`);
 	players.set(playerId, { ws: ws, id: playerId });
+	appInsightsLogMetric("SSPlayerConnected", 1);
 
 	function sendPlayersCount() {
 		let playerCountMsg = JSON.stringify({ type: 'playerCount', count: players.size });
@@ -356,6 +401,8 @@ playerServer.on('connection', function (ws, req) {
 		} catch (err) {
 			console.error(`Cannot parse player ${playerId} message: ${err}`);
 			ws.close(1008, 'Cannot parse');
+			appInsightsLogMetric("SignalingServerError", 1);
+			appInsightsLogError(err);
 			return;
 		}
 
@@ -390,6 +437,7 @@ playerServer.on('connection', function (ws, req) {
 		sendPlayerDisconnectedToFrontend();
 		sendPlayerDisconnectedToMatchmaker();
 		sendPlayersCount();
+		appInsightsLogMetric("SSPlayerDisconnected", 1);
 	}
 
 	ws.on('close', function(code, reason) {
@@ -433,19 +481,23 @@ if (config.UseMatchmaker) {
 			port: httpPort
 		};
 		matchmaker.write(JSON.stringify(message));
+		appInsightsLogMetric("SSMatchmakerConnected", 1);
 	});
 
 	matchmaker.on('error', (err) => {
 		console.log(`Matchmaker connection error ${JSON.stringify(err)}`);
+		appInsightsLogMetric("SSMatchmakerConnectionError", 1);
 	});
 
 	matchmaker.on('end', () => {
 		console.log('Matchmaker connection ended');
+		appInsightsLogMetric("SSMatchmakerConnectionEnded", 1);
 	});
 
 	matchmaker.on('close', (hadError) => {
 		console.log(`Matchmaker connection closed (hadError=${hadError})`);
 		reconnect();
+		appInsightsLogMetric("SSMatchmakerConnectionClosed", 1);
 	});
 
 	// Attempt to connect to the Matchmaker
@@ -456,6 +508,7 @@ if (config.UseMatchmaker) {
 	// Try to reconnect to the Matchmaker after a given period of time
 	function reconnect() {
 		console.log(`Try reconnect to Matchmaker in ${matchmakerRetryInterval} seconds`)
+		appInsightsLogMetric("SSMatchmakerRetryConnection", 1);
 		setTimeout(function() {
 			connect();
 		}, matchmakerRetryInterval * 1000);
@@ -587,6 +640,7 @@ function sendPlayerDisconnectedToFrontend() {
 		function (response, body) {
 			if (response.statusCode === 200) {
 				console.log('clientDisconnected acknowledged by Frontend');
+				appInsightsLogMetric("SSPlayerDisconnectedFrontEnd", 1);
 			}
 			else {
 				console.error('Status code: ' + response.statusCode);

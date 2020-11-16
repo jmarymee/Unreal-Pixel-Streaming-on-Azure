@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 ## variables
 variable "base_name" {
   description = "Base name to use for the resources"
@@ -7,9 +10,9 @@ variable "base_name" {
 variable "resource_group" {
   description = "The RG for the storage account"
   type = object({
-    id     = string
+    id       = string
     location = string
-    name   = string
+    name     = string
   })
 }
 
@@ -34,6 +37,14 @@ output "uri" {
   value = azurerm_storage_account.storageaccount.primary_blob_endpoint
 }
 
+output "name" {
+  value = azurerm_storage_account.storageaccount.name
+}
+
+output "key" {
+  value = azurerm_storage_account.storageaccount.primary_access_key
+}
+
 ## locals
 locals {
   base_name = var.base_name
@@ -41,7 +52,7 @@ locals {
 
 ## resources
 resource "azurerm_storage_account" "storageaccount" {
-  name                     = format("%sstoracct%s", var.base_name, var.index)
+  name                     = format("%sue4storacctformm00%s", var.base_name, var.index)
   resource_group_name      = var.resource_group.name
   location                 = var.resource_group.location
   account_tier             = var.account_tier

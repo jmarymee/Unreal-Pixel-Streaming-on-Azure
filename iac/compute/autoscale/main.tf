@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 variable "base_name" {
   type = string
 }
@@ -5,26 +8,26 @@ variable "base_name" {
 variable "resource_group" {
   description = "The RG VMs"
   type = object({
-    id     = string
+    id       = string
     location = string
-    name   = string
+    name     = string
   })
 }
 
 variable "vmss_id" {
-  type  = string
+  type = string
 }
 
 variable "capacity_default" {
-    type = string
+  type = string
 }
 
 variable "capacity_minimum" {
-    type = string
+  type = string
 }
 
 variable "capacity_maximum" {
-    type = string
+  type = string
 }
 
 resource "azurerm_monitor_autoscale_setting" "vmss_autoscale_settings" {

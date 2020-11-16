@@ -1,4 +1,6 @@
-#rg, location, diag sa, network
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 variable "base_name" {
   type = string
 }
@@ -6,31 +8,35 @@ variable "base_name" {
 variable "resource_group" {
   description = "The RG VMs"
   type = object({
-    id     = string
+    id       = string
     location = string
-    name   = string
+    name     = string
   })
 }
 
+variable "vm_count" {
+  type = number
+}
+
 variable "vm_size" {
-   description = "VM Size for the client"
+  description = "VM Size for the client"
   type        = string
 }
 
 variable "vm_publisher" {
-  type        = string
+  type = string
 }
 
 variable "vm_offer" {
-  type        = string
+  type = string
 }
 
 variable "vm_sku" {
-  type        = string
+  type = string
 }
 
 variable "vm_version" {
-  type        = string
+  type = string
 }
 
 variable "subnet_id" {
@@ -62,11 +68,11 @@ variable "vm_name" {
 }
 
 variable "lb_backend_address_pool_id" {
-    type = string
+  type = string
 }
 
 variable "lb_nat_pool_id" {
-    type = string
+  type = string
 }
 
 variable "ip_configuration_name" {
@@ -82,40 +88,59 @@ output "admin_password" {
   value = var.admin_password
 }
 
-output "vm_id" {
-    value = azurerm_windows_virtual_machine.vm.id
+output "vms" {
+  value = azurerm_windows_virtual_machine.vm
 }
 
-output "nic_id" {
-  value = azurerm_network_interface.nic.id
+output "nics" {
+  value = azurerm_network_interface.nic
 }
+
+# output "principal_id" {
+#   value = azurerm_windows_virtual_machine.vm[count.index].identity[0].principal_id
+# }
 
 ## resources
-resource "azurerm_network_interface" "nic" {
-  name                = format("%s-nic", var.vm_name)
+
+#create an array of public ip addresses
+resource "azurerm_public_ip" "pip" {
+  count               = var.vm_count
+  name                = format("%s-%s-%s-pip.%s", var.base_name, "mmvm", var.resource_group.location, count.index)
   location            = var.resource_group.location
   resource_group_name = var.resource_group.name
-  #enable_accelerated_networking = true
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  domain_name_label   = lower(format("%s-%s-%s", "mmvm", count.index, var.base_name))
+}
+
+resource "azurerm_network_interface" "nic" {
+  count               = var.vm_count
+  name                = format("%s-nic-%s.%s", var.vm_name, lower(var.resource_group.location), count.index)
+  location            = var.resource_group.location
+  resource_group_name = var.resource_group.name
 
   ip_configuration {
     name                          = var.ip_configuration_name
     subnet_id                     = var.subnet_id
     private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.pip[count.index].id
   }
 }
 
 resource "azurerm_windows_virtual_machine" "vm" {
-  name                = format("%s-vm", var.vm_name)
-  location            = var.resource_group.location
-  resource_group_name = var.resource_group.name
-  size                = var.vm_size
-  admin_username      = var.admin_username
-  admin_password      = var.admin_password
+  count                    = var.vm_count
+  name                     = format("%s-vm%s", var.vm_name, count.index)
+  location                 = var.resource_group.location
+  resource_group_name      = var.resource_group.name
+  size                     = var.vm_size
+  admin_username           = var.admin_username
+  admin_password           = var.admin_password
   enable_automatic_updates = true
-  availability_set_id = var.availability_set_id
-  
+  provision_vm_agent       = true
+  availability_set_id      = var.availability_set_id
+
   network_interface_ids = [
-    azurerm_network_interface.nic.id,
+    azurerm_network_interface.nic[count.index].id,
   ]
 
   os_disk {
@@ -133,5 +158,23 @@ resource "azurerm_windows_virtual_machine" "vm" {
   boot_diagnostics {
     //enabled = "true"
     storage_account_uri = var.storage_uri
-  }  
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  custom_data = filebase64("../scripts/setupMatchMakerVM.ps1")
 }
+
+//do a role assignment for the new system identity
+data "azurerm_subscription" "primary" {
+}
+
+resource "azurerm_role_assignment" "role_assignment" {
+  count                = var.vm_count
+  scope                = data.azurerm_subscription.primary.id
+  role_definition_name = "Contributor"
+  principal_id         = azurerm_windows_virtual_machine.vm[count.index].identity[0].principal_id
+}
+
