@@ -1,6 +1,14 @@
 # Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+Set-Alias -Name git -Value "$Env:ProgramFiles\Git\bin\git.exe" -Scope Global
+Set-Alias -Name node -Value "$Env:ProgramFiles\nodejs\node.exe" -Scope Global
+Set-Alias -Name npm -Value "$Env:ProgramFiles\nodejs\node_modules\npm" -Scope Global
 
-$PublicIp = Invoke-WebRequest -Uri "https://api.ipify.org"
+if ($env:VMFQDN) {
+    $PublicIp = $env:VMFQDN
+}
+else {
+    $PublicIp = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
+}
 
 Write-Output "Public IP: $PublicIp"
 

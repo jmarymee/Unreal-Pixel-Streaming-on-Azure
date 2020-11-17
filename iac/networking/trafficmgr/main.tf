@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 ## variables
 variable "base_name" {
   description = "Base name to use for the resources"
@@ -42,8 +45,9 @@ resource "azurerm_traffic_manager_profile" "traffic_manager_profile" {
   }
 }
 
+/*
 resource "azurerm_monitor_diagnostic_setting" "tm-diag" {
-  name               = "tm-diag"
+  name               = format("%s-tm-diag-%s", var.base_name, var.service_name)
   target_resource_id = azurerm_traffic_manager_profile.traffic_manager_profile.id
   log_analytics_workspace_id = var.log_analytics_workspace_id
 
@@ -65,3 +69,4 @@ resource "azurerm_monitor_diagnostic_setting" "tm-diag" {
     }
   }
 }
+*/

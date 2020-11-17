@@ -6,7 +6,9 @@
     "express": "^4.16.2",
     "socket.io": "^2.0.4",
     "yargs": "^10.1.1",
-    "ms-rest": "^2.3.3",
-    "ms-rest-azure": "^2.5.5"
+    "@azure/ms-rest-nodeauth": "^3.0.6",
+    "@azure/logger": "^1.0.0",
+    "@azure/arm-compute": "^15.0.0",
+    "applicationinsights": "1.8.8"
   }
 }

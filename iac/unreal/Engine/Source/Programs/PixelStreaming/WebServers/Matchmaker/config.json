@@ -1,10 +1,15 @@
 {
 	"httpPort": 90,
 	"matchmakerPort": 9999,
-	"instancesPerNode": 2,
+	"instancesPerNode": 1,
 	"instanceCountBuffer": 5,
-	"percentBuffer": 75,
+	"percentBuffer": 25,
 	"idleMinutes": 60,
 	"connectionIdleRatio": 25,
-	"minIdleInstanceCount": 5
+	"minIdleInstanceCount": 0,
+	"maxInstanceScaleCount": 500,
+	"subscriptionId": "",
+	"resourceGroup": "",
+	"virtualMachineScaleSet": "",
+	"appInsightsId": ""
 }

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 variable "resource_group" {
   description = "The RG for the NSG"
   type = object({
